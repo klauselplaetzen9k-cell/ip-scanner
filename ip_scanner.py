@@ -5,7 +5,7 @@ Advanced IP Scanner CLI - Network discovery with custom endpoints.
 from __future__ import annotations
 import argparse
 import asyncio
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import re
 import socket
@@ -132,7 +132,7 @@ def ping_host(ip: str, count: int = 1, timeout: float = 2.0) -> tuple[bool, floa
                 return True, float(match.group(1)) if match else True, 0.0
         elif sys.platform == "darwin":
             result = subprocess.run(
-                ["ping", "-n", str(count), "-t", str(timeout)), ip],
+                ["ping", "-c", str(count), "-t", str(int(timeout)), ip],
                 capture_output=True, timeout=timeout * count + 2,
             )
             if result.returncode == 0:
@@ -176,8 +176,8 @@ async def scan_endpoint(
     timeout: float,
 ) -> dict:
     """Scan single endpoint."""
-    url = f"http://ip}:{endpoint.path}"
-    session_key = f"ip}:{endpoint.path.split('/')[1]}" if endpoint.preserve_session else "default"
+    url = f"http://{ip}:{endpoint.path}"
+    session_key = f"{ip}:{endpoint.path.split('/')[1]}" if endpoint.preserve_session else "default"
     
     if session_key not in sessions:
         import aiohttp
@@ -398,7 +398,7 @@ async def nmap_scan_ips(ips: list[str], ports: str = None, arguments: str = "-sV
             for ip in ips
         }
         
-        for future in concurrent.futures.as_completed(future_to_ip):
+        for future in as_completed(future_to_ip):
             ip = future_to_ip[future]
             try:
                 results[ip] = future.result()
