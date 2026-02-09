@@ -153,3 +153,33 @@ Results are organized with IP addresses as dictionary keys:
   }
 }
 ```
+
+## Development
+
+### Install Dependencies
+```bash
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+```
+
+### Run Tests
+```bash
+pytest test_scanner.py -v
+```
+
+### Linting & Security
+```bash
+make lint
+make security
+```
+
+### CI Pipeline
+GitHub Actions runs on every push:
+
+| Job | Description |
+|-----|-------------|
+| `test` | Unit tests with pytest |
+| `nmap-test` | Nmap integration tests |
+| `security-check` | Bandit security scanning |
+| `validate-output` | Output format validation |
+```
