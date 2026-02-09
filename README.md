@@ -116,3 +116,40 @@ When `--nmap` is enabled, the scanner runs nmap on discovered hosts for comprehe
 - **Open Ports Only**: `--open` filters to open ports
 
 Results are merged into the output under `endpoint_results.nmap`.
+
+## Output Format
+
+Results are organized with IP addresses as dictionary keys:
+
+```json
+{
+  "192.168.1.1": {
+    "hostname": "router.local",
+    "status": "online",
+    "ping_time_ms": 1.5,
+    "endpoint_results": {
+      "nmap": {
+        "ports": [
+          "22/tcp   open  ssh     OpenSSH 8.2",
+          "80/tcp   open  http    nginx 1.18.0"
+        ]
+      }
+    },
+    "merged_data": {
+      "version": "2.1.0",
+      "uptime": 86400
+    },
+    "error": null,
+    "scan_time_ms": 1523.4
+  },
+  "192.168.1.2": {
+    "hostname": null,
+    "status": "offline",
+    "ping_time_ms": null,
+    "endpoint_results": {},
+    "merged_data": {},
+    "error": null,
+    "scan_time_ms": 45.2
+  }
+}
+```
