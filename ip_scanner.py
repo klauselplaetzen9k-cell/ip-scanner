@@ -273,6 +273,37 @@ def format_output(results: list[ScanResult], fmt: OutputFormat) -> str:
         return "\n".join(lines)
 
 
+def get_local_ip() -> Optional[str]:
+    """Get the local IP address of this machine."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return None
+
+
+def get_local_subnet_range(base_ip: Optional[str] = None, start: int = 100, end: int = 150) -> Optional[str]:
+    """Get subnet range based on local IP.
+    
+    Example: 192.168.8.15 -> 192.168.8.100-150
+    """
+    if not base_ip:
+        base_ip = get_local_ip()
+    
+    if not base_ip:
+        return None
+    
+    parts = base_ip.rsplit(".", 1)
+    if len(parts) == 2:
+        prefix = parts[0]
+        return f"{prefix}.{start}-{end}"
+    
+    return None
+
+
 def main():
     parser = argparse.ArgumentParser(description="Advanced IP Scanner")
     parser.add_argument("ips", nargs="*", help="IP addresses or ranges")
@@ -282,8 +313,22 @@ def main():
     parser.add_argument("-F", "--format", choices=["json", "json-pretty", "text", "csv"], default="json-pretty")
     parser.add_argument("-t", "--timeout", type=float, default=5.0)
     parser.add_argument("-c", "--concurrency", type=int, default=100)
+    parser.add_argument("--auto-subnet", action="store_true", help="Auto-detect local subnet and scan (default: .100-.150)")
     
     args = parser.parse_args()
+    
+    # Auto-detect local subnet
+    if args.auto_subnet:
+        local_ip = get_local_ip()
+        if local_ip:
+            subnet = get_local_subnet_range(local_ip)
+            if subnet:
+                print(f"Local IP: {local_ip}")
+                print(f"Auto-detected subnet: {subnet}")
+                args.ips.append(subnet)
+        else:
+            print("Could not detect local IP", file=sys.stderr)
+            sys.exit(1)
     
     # Load IPs
     ip_list = []
@@ -293,7 +338,8 @@ def main():
     ip_list = list(dict.fromkeys(ip_list))
     
     if not ip_list:
-        parser.error("No IPs specified")
+        parser.print_help()
+        parser.error("No IPs specified. Use --auto-subnet or provide IPs manually.")
     
     # Load endpoints
     groups = []
