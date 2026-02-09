@@ -5,6 +5,7 @@ Advanced IP Scanner CLI - Network discovery with custom endpoints.
 from __future__ import annotations
 import argparse
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 import json
 import re
 import socket
@@ -304,6 +305,98 @@ def get_local_subnet_range(base_ip: Optional[str] = None, start: int = 100, end:
     return None
 
 
+def nmap_available() -> bool:
+    """Check if nmap is installed."""
+    try:
+        subprocess.run(["nmap", "--version"], capture_output=True, check=True)
+        return True
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return False
+
+
+def run_nmap_scan(ip: str, ports: str = None, arguments: str = "-sV -sC --open") -> dict:
+    """Run nmap scan on an IP address.
+    
+    Args:
+        ip: Target IP address
+        ports: Specific ports to scan (e.g., "80,443,22")
+        arguments: Nmap arguments (default: service detection + scripts)
+    
+    Returns:
+        Dict with nmap results
+    """
+    if not nmap_available():
+        return {"error": "nmap not installed"}
+    
+    cmd = ["nmap", ip]
+    
+    if ports:
+        cmd.extend(["-p", ports])
+    else:
+        cmd.append("-p-")  # Scan all ports
+    
+    cmd.extend(arguments.split())
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        
+        if result.returncode != 0:
+            return {"error": result.stderr}
+        
+        # Parse basic output
+        output = result.stdout
+        host_script = {"output": output}
+        
+        # Extract port info
+        ports_info = []
+        in_port_section = False
+        
+        for line in output.splitlines():
+            line = line.strip()
+            if "/tcp" in line or "/udp" in line:
+                in_port_section = True
+                ports_info.append(line)
+            elif in_port_section and not line:
+                in_port_section = False
+        
+        host_script["ports"] = ports_info
+        
+        return host_script
+        
+    except subprocess.TimeoutExpired:
+        return {"error": "nmap scan timed out"}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+async def nmap_scan_ips(ips: list[str], ports: str = None, arguments: str = "-sV -sC --open") -> dict:
+    """Run nmap scan on multiple IPs.
+    
+    Uses ThreadPoolExecutor for concurrent nmap scans.
+    """
+    results = {}
+    
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_ip = {
+            executor.submit(run_nmap_scan, ip, ports, arguments): ip 
+            for ip in ips
+        }
+        
+        for future in concurrent.futures.as_completed(future_to_ip):
+            ip = future_to_ip[future]
+            try:
+                results[ip] = future.result()
+            except Exception as e:
+                results[ip] = {"error": str(e)}
+    
+    return results
+
+
 def main():
     parser = argparse.ArgumentParser(description="Advanced IP Scanner")
     parser.add_argument("ips", nargs="*", help="IP addresses or ranges")
@@ -314,6 +407,10 @@ def main():
     parser.add_argument("-t", "--timeout", type=float, default=5.0)
     parser.add_argument("-c", "--concurrency", type=int, default=100)
     parser.add_argument("--auto-subnet", action="store_true", help="Auto-detect local subnet and scan (default: .100-.150)")
+    # Nmap options
+    parser.add_argument("--nmap", action="store_true", help="Run nmap scan on discovered hosts")
+    parser.add_argument("--nmap-ports", help="Nmap ports to scan (e.g., '80,443,22')")
+    parser.add_argument("--nmap-args", default="-sV -sC --open", help="Nmap arguments (default: -sV -sC --open)")
     
     args = parser.parse_args()
     
@@ -353,6 +450,23 @@ def main():
     print(f"Scanning {len(ip_list)} targets...")
     
     results = asyncio.run(scan_ips(ip_list, groups, args.timeout, args.concurrency))
+    
+    # Run nmap scan if requested
+    if args.nmap:
+        if not nmap_available():
+            print("Warning: nmap not installed. Skipping nmap scan.")
+        else:
+            print(f"Running nmap scan on {len(results)} hosts...")
+            nmap_results = asyncio.run(nmap_scan_ips(
+                [r.ip for r in results],
+                args.nmap_ports,
+                args.nmap_args
+            ))
+            
+            # Merge nmap results into existing results
+            for r in results:
+                if r.ip in nmap_results:
+                    r.endpoint_results["nmap"] = nmap_results[r.ip]
     
     output = format_output(results, OutputFormat(args.format))
     

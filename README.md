@@ -8,6 +8,7 @@ Network discovery with custom API endpoints and session/cookie handling.
 - **Custom Endpoints**: Define your own API endpoints in JSON
 - **Session Preservation**: Cookies/auth maintained across requests
 - **Ordered Scanning**: Endpoints scanned in defined order
+- **Nmap Integration**: Service detection and port scanning
 - **Smart Merging**: Combine responses intelligently
 - **Multiple Formats**: JSON, pretty JSON, CSV, text
 
@@ -32,6 +33,22 @@ python ip_scanner.py 192.168.1.1 -e endpoints.json -o results.json
 ### Combine Options
 ```bash
 python ip_scanner.py --auto-subnet -e endpoints.json -o results.json
+```
+
+### Nmap Integration
+Run nmap service detection on discovered hosts:
+```bash
+# Basic nmap scan
+python ip_scanner.py 192.168.1.0/24 --nmap
+
+# Scan specific ports
+python ip_scanner.py 192.168.1.0/24 --nmap --nmap-ports "80,443,22,8080"
+
+# Custom nmap arguments
+python ip_scanner.py 192.168.1.0/24 --nmap --nmap-args "-sV -sC -p-"
+
+# Combine with endpoints
+python ip_scanner.py --auto-subnet --nmap -e endpoints.json -o results.json
 ```
 
 ## Endpoint Configuration
@@ -66,6 +83,9 @@ Define custom endpoints in JSON:
 | Option | Description |
 |--------|-------------|
 | `--auto-subnet` | Auto-detect local IP and scan .100-.150 |
+| `--nmap` | Run nmap scan on discovered hosts |
+| `--nmap-ports` | Ports to scan with nmap |
+| `--nmap-args` | Nmap arguments (default: -sV -sC --open) |
 | `-f, --file` | IP list file |
 | `-e, --endpoints` | Endpoint definitions JSON |
 | `-o, --output` | Output file |
