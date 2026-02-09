@@ -16,7 +16,6 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
-from urllib.parse import urljoin
 
 
 class OutputFormat(Enum):
@@ -178,14 +177,14 @@ async def scan_endpoint(
     """Scan a single endpoint."""
     url = f"http://{ip}:{endpoint.path}"
     session_key = f"{ip}:{endpoint.path.split('/')[1]}" if endpoint.preserve_session else "default"
-    
+
     if session_key not in sessions:
         import aiohttp
         timeout_obj = aiohttp.ClientTimeout(total=timeout)
         sessions[session_key] = aiohttp.ClientSession(timeout=timeout_obj)
-    
+
     sess = sessions[session_key]
-    
+
     try:
         method = endpoint.method.value.lower()
         method_fn = getattr(sess, method)
@@ -205,20 +204,20 @@ async def scan_device(
     """Scan device with custom endpoints."""
     start = datetime.utcnow()
     result = ScanResult(ip=ip)
-    
+
     pingable, ping_time = ping_host(ip)
     result.ping_time_ms = ping_time
-    
+
     if not pingable:
         result.status = ScanStatus.OFFLINE
         result.scan_time_ms = (datetime.utcnow() - start).total_seconds() * 1000
         return result
-    
+
     result.status = ScanStatus.PINGABLE
     result.hostname = get_hostname(ip)
-    
+
     sessions = {}
-    
+
     try:
         import aiohttp
         async with aiohttp.ClientSession() as session:
@@ -226,13 +225,13 @@ async def scan_device(
                 for endpoint in group.endpoints:
                     data = await scan_endpoint(session, ip, endpoint, sessions, timeout)
                     result.endpoint_results[endpoint.path] = data
-                    
+
                     if endpoint.merge_strategy == "smart":
                         result.merged_data = smart_merge(result.merged_data, data)
-                    
+
     except Exception as e:
         result.error = str(e)
-    
+
     result.scan_time_ms = (datetime.utcnow() - start).total_seconds() * 1000
     return result
 
@@ -245,11 +244,11 @@ async def scan_ips(
 ) -> list[ScanResult]:
     """Scan multiple IPs."""
     semaphore = asyncio.Semaphore(concurrency)
-    
+
     async def scan_with_limit(ip: str) -> ScanResult:
         async with semaphore:
             return await scan_device(ip, groups, timeout)
-    
+
     tasks = [scan_with_limit(ip) for ip in ips]
     return await asyncio.gather(*tasks)
 
@@ -265,7 +264,7 @@ def format_output(results: list[ScanResult], fmt: OutputFormat) -> str:
         "error": r.error,
         "scan_time_ms": round(r.scan_time_ms, 1),
     } for r in results}
-    
+
     if fmt == OutputFormat.JSON:
         return json.dumps(output_dict)
     elif fmt == OutputFormat.JSON_PRETTY:
@@ -299,20 +298,20 @@ def get_local_ip() -> Optional[str]:
 
 def get_local_subnet_range(base_ip: Optional[str] = None, start: int = 100, end: int = 150) -> Optional[str]:
     """Get subnet range based on local IP.
-    
+
     Example: 192.168.8.15 -> 192.168.8.100-150
     """
     if not base_ip:
         base_ip = get_local_ip()
-    
+
     if not base_ip:
         return None
-    
+
     parts = base_ip.rsplit(".", 1)
     if len(parts) == 2:
         prefix = parts[0]
         return f"{prefix}.{start}-{end}"
-    
+
     return None
 
 
@@ -327,27 +326,27 @@ def nmap_available() -> bool:
 
 def run_nmap_scan(ip: str, ports: str = None, arguments: str = "-sV -sC --open") -> dict:
     """Run nmap scan on an IP address.
-    
+
     Args:
         ip: Target IP address
         ports: Specific ports to scan (e.g., "80,443,22")
         arguments: Nmap arguments (default: service detection + scripts)
-    
+
     Returns:
         Dict with nmap results
     """
     if not nmap_available():
         return {"error": "nmap not installed"}
-    
+
     cmd = ["nmap", ip]
-    
+
     if ports:
         cmd.extend(["-p", ports])
     else:
         cmd.append("-p-")  # Scan all ports
-    
+
     cmd.extend(arguments.split())
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -355,18 +354,18 @@ def run_nmap_scan(ip: str, ports: str = None, arguments: str = "-sV -sC --open")
             text=True,
             timeout=120,
         )
-        
+
         if result.returncode != 0:
             return {"error": result.stderr}
-        
+
         # Parse basic output
         output = result.stdout
         host_script = {"output": output}
-        
+
         # Extract port info
         ports_info = []
         in_port_section = False
-        
+
         for line in output.splitlines():
             line = line.strip()
             if "/tcp" in line or "/udp" in line:
@@ -374,11 +373,11 @@ def run_nmap_scan(ip: str, ports: str = None, arguments: str = "-sV -sC --open")
                 ports_info.append(line)
             elif in_port_section and not line:
                 in_port_section = False
-        
+
         host_script["ports"] = ports_info
-        
+
         return host_script
-        
+
     except subprocess.TimeoutExpired:
         return {"error": "nmap scan timed out"}
     except Exception as e:
@@ -387,24 +386,24 @@ def run_nmap_scan(ip: str, ports: str = None, arguments: str = "-sV -sC --open")
 
 async def nmap_scan_ips(ips: list[str], ports: str = None, arguments: str = "-sV -sC --open") -> dict:
     """Run nmap scan on multiple IPs.
-    
+
     Uses ThreadPoolExecutor for concurrent nmap scans.
     """
     results = {}
-    
+
     with ThreadPoolExecutor(max_workers=10) as executor:
         future_to_ip = {
-            executor.submit(run_nmap_scan, ip, ports, arguments): ip 
+            executor.submit(run_nmap_scan, ip, ports, arguments): ip
             for ip in ips
         }
-        
+
         for future in as_completed(future_to_ip):
             ip = future_to_ip[future]
             try:
                 results[ip] = future.result()
             except Exception as e:
                 results[ip] = {"error": str(e)}
-    
+
     return results
 
 
@@ -417,14 +416,14 @@ def main():
     parser.add_argument("-F", "--format", choices=["json", "json-pretty", "text", "csv"], default="json-pretty")
     parser.add_argument("-t", "--timeout", type=float, default=5.0)
     parser.add_argument("-c", "--concurrency", type=int, default=100)
-    parser.add_argument("--auto-subnet", action="store_true", help="Auto-detect local subnet and scan (default: .100-.150)")
+    parser.add_argument("--auto-subnet", action="store_true", help="Auto-detect local subnet, scan .100-.150")
     # Nmap options
     parser.add_argument("--nmap", action="store_true", help="Run nmap scan on discovered hosts")
     parser.add_argument("--nmap-ports", help="Nmap ports to scan (e.g., '80,443,22')")
     parser.add_argument("--nmap-args", default="-sV -sC --open", help="Nmap arguments (default: -sV -sC --open)")
-    
+
     args = parser.parse_args()
-    
+
     # Auto-detect local subnet
     if args.auto_subnet:
         local_ip = get_local_ip()
@@ -437,18 +436,18 @@ def main():
         else:
             print("Could not detect local IP", file=sys.stderr)
             sys.exit(1)
-    
+
     # Load IPs
     ip_list = []
     if args.file:
         ip_list.extend(load_ips(args.file))
     ip_list.extend(args.ips)
     ip_list = list(dict.fromkeys(ip_list))
-    
+
     if not ip_list:
         parser.print_help()
         parser.error("No IPs specified. Use --auto-subnet or provide IPs manually.")
-    
+
     # Load endpoints
     groups = []
     if args.endpoints:
@@ -457,11 +456,11 @@ def main():
             for g in config.get("groups", []):
                 endpoints = [APIEndpoint(**e) for e in g.get("endpoints", [])]
                 groups.append(EndpointGroup(name=g["name"], endpoints=endpoints))
-    
+
     print(f"Scanning {len(ip_list)} targets...")
-    
+
     results = asyncio.run(scan_ips(ip_list, groups, args.timeout, args.concurrency))
-    
+
     # Run nmap scan if requested
     if args.nmap:
         if not nmap_available():
@@ -473,14 +472,14 @@ def main():
                 args.nmap_ports,
                 args.nmap_args
             ))
-            
+
             # Merge nmap results into existing results
             for r in results:
                 if r.ip in nmap_results:
                     r.endpoint_results["nmap"] = nmap_results[r.ip]
-    
+
     output = format_output(results, OutputFormat(args.format))
-    
+
     if args.output:
         Path(args.output).write_text(output)
         print(f"Results written to {args.output}")
