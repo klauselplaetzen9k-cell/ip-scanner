@@ -175,7 +175,7 @@ async def scan_endpoint(
     sessions: dict,
     timeout: float,
 ) -> dict:
-    """Scan single endpoint."""
+    """Scan a single endpoint."""
     url = f"http://{ip}:{endpoint.path}"
     session_key = f"{ip}:{endpoint.path.split('/')[1]}" if endpoint.preserve_session else "default"
     
