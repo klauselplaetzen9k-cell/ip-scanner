@@ -12,7 +12,7 @@ import socket
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -97,10 +97,11 @@ def parse_ip_range(range_str: str) -> list[str]:
     if "-" in range_str:
         parts = range_str.rsplit("-", 1)
         if len(parts) == 2:
-            base_parts = parts[0].rsplit(".", 3)
-            if len(base_parts) == 4:
-                prefix = ".".join(base_parts[:3]) + "."
-                start = int(base_parts[3])
+            # Split prefix to get base (e.g., "192.168.1." from "192.168.1.1-10")
+            prefix_parts = parts[0].rsplit(".", 1)
+            if len(prefix_parts) == 2:
+                prefix = prefix_parts[0] + "."
+                start = int(prefix_parts[1])
                 end = int(parts[1])
                 for i in range(start, end + 1):
                     ips.append(f"{prefix}{i}")
@@ -128,7 +129,7 @@ def ping_host(ip: str, count: int = 1, timeout: float = 2.0) -> tuple[bool, floa
             )
             if result.returncode == 0:
                 match = re.search(r"time=([\d.]+)", result.stdout.decode())
-                return True, float(match.group(1)) if match else True, 0.0
+                return (True, float(match.group(1))) if match else (True, 0.0)
         elif sys.platform == "darwin":
             result = subprocess.run(
                 ["ping", "-c", str(count), "-t", str(int(timeout)), ip],
@@ -202,7 +203,7 @@ async def scan_device(
     timeout: float = 5.0,
 ) -> ScanResult:
     """Scan device with custom endpoints."""
-    start = datetime.utcnow()
+    start = datetime.now(timezone.utc)
     result = ScanResult(ip=ip)
 
     pingable, ping_time = ping_host(ip)
@@ -210,7 +211,7 @@ async def scan_device(
 
     if not pingable:
         result.status = ScanStatus.OFFLINE
-        result.scan_time_ms = (datetime.utcnow() - start).total_seconds() * 1000
+        result.scan_time_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
         return result
 
     result.status = ScanStatus.PINGABLE
@@ -232,7 +233,7 @@ async def scan_device(
     except Exception as e:
         result.error = str(e)
 
-    result.scan_time_ms = (datetime.utcnow() - start).total_seconds() * 1000
+    result.scan_time_ms = (datetime.now(timezone.utc) - start).total_seconds() * 1000
     return result
 
 
@@ -441,7 +442,9 @@ def main():
     ip_list = []
     if args.file:
         ip_list.extend(load_ips(args.file))
-    ip_list.extend(args.ips)
+    # Parse IP ranges (e.g., 192.168.1.1-10 or 192.168.1.0/24)
+    for ip_arg in args.ips:
+        ip_list.extend(parse_ip_range(ip_arg))
     ip_list = list(dict.fromkeys(ip_list))
 
     if not ip_list:
