@@ -18,9 +18,20 @@ Network discovery with custom API endpoints and session/cookie handling.
 python ip_scanner.py 192.168.1.0/24
 ```
 
+### Auto-Detect Local Subnet
+Automatically detect your local IP and scan the subnet (.100-.150):
+```bash
+python ip_scanner.py --auto-subnet
+```
+
 ### Custom Endpoints
 ```bash
 python ip_scanner.py 192.168.1.1 -e endpoints.json -o results.json
+```
+
+### Combine Options
+```bash
+python ip_scanner.py --auto-subnet -e endpoints.json -o results.json
 ```
 
 ## Endpoint Configuration
@@ -54,12 +65,23 @@ Define custom endpoints in JSON:
 
 | Option | Description |
 |--------|-------------|
+| `--auto-subnet` | Auto-detect local IP and scan .100-.150 |
 | `-f, --file` | IP list file |
 | `-e, --endpoints` | Endpoint definitions JSON |
 | `-o, --output` | Output file |
 | `-F, --format` | json/json-pretty/text/csv |
 | `-t, --timeout` | Request timeout |
 | `-c, --concurrent` | Max concurrent scans |
+
+## Auto-Subnet Detection
+
+The `--auto-subnet` flag detects your machine's local IP and automatically scans a typical device range:
+
+```
+192.168.8.15 -> scans 192.168.8.100-150
+```
+
+Useful for quickly discovering devices on your local network.
 
 ## Session Handling
 
