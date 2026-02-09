@@ -1,137 +1,66 @@
-# IP Scanner
-Advanced network scanner with API enumeration and JSON merging.
+# Advanced IP Scanner
+
+Network discovery with custom API endpoints and session/cookie handling.
 
 ## Features
 
-- **Ping sweep** - Check host availability
-- **Port scanning** - Find open ports
-- **API enumeration** - Call REST APIs on discovered devices
-- **Smart JSON merging** - Merge API responses (only overwrite null/0 values)
-- **Multiple formats** - JSON, pretty JSON, CSV, text
-- **Concurrent scanning** - Fast scanning with async/await
-
-## Installation
-
-```bash
-pip install -r requirements.txt
-```
+- **IP Input**: CIDR ranges, individual IPs, or file input
+- **Custom Endpoints**: Define your own API endpoints in JSON
+- **Session Preservation**: Cookies/auth maintained across requests
+- **Ordered Scanning**: Endpoints scanned in defined order
+- **Smart Merging**: Combine responses intelligently
+- **Multiple Formats**: JSON, pretty JSON, CSV, text
 
 ## Usage
 
-### Scan IP range
+### Basic Scan
 ```bash
-# Single IP
-python ip_scanner.py 192.168.1.1
-
-# CIDR range
 python ip_scanner.py 192.168.1.0/24
-
-# IP range
-python ip_scanner.py 192.168.1.1-10
-
-# Multiple ranges
-python ip_scanner.py 192.168.1.0/24 10.0.0.0/24
 ```
 
-### From file
+### Custom Endpoints
 ```bash
-python ip_scanner.py -f ips.txt
+python ip_scanner.py 192.168.1.1 -e endpoints.json -o results.json
 ```
 
-### Output formats
-```bash
-# JSON
-python ip_scanner.py 192.168.1.0/24 -F json
+## Endpoint Configuration
 
-# Pretty JSON
-python ip_scanner.py 192.168.1.0/24 -F json-pretty
+Define custom endpoints in JSON:
 
-# CSV
-python ip_scanner.py 192.168.1.0/24 -F csv
-
-# Text summary
-python ip_scanner.py 192.168.1.0/24 -F text
-```
-
-### Output to file
-```bash
-python ip_scanner.py 192.168.1.0/24 -o results.json
-```
-
-## API Integration
-
-The scanner calls APIs on common ports:
-
-| Port | Service | API |
-|------|----------|-----|
-| 80/443 | Router | System/device info |
-| 631 | Printer | Status pages |
-| 9100 | Node Exporter | Prometheus metrics |
-| 2375/2376 | Docker | Container info |
-
-### JSON Merging
-
-When multiple API endpoints return data, the scanner merges them intelligently:
-
-```python
-# Only overwrites null/0/empty values
-merged = {
-    "hostname": "router1",      # From first API
-    "uptime": 86400,           # From second API (preserved)
-    "version": "2.1.0",         # From third API
-}
-```
-
-## Options
+```json
+{
+  "groups": [
+    {
+      "name": "api_group",
+      "endpoints": [
+        {
+          "path": "/api/login",
+          "method": "POST",
+          "body": "{\"username\": \"admin\"}",
+          "preserve_session": true,
+          "merge_strategy": "smart"
+        },
+        {
+          "path": "/api/protected/resource",
+          "method": "GET"
+        }
+      ]
+    }
+  ]
 
 ```
--t, --timeout     Timeout per host (seconds, default: 5)
--c, --concurrency  Max concurrent scans (default: 100)
--F, --format      Output format (json, json-pretty, text, csv)
--o, --output      Write to file
-```
 
-## Examples
+### Options
 
-### Scan network and save results
-```bash
-python ip_scanner.py 192.168.1.0/24 -o scan.json
-```
+| Option | Description |
+|--------|-------------|
+| `-f, --file` | IP list file |
+| `-e, --endpoints` | Endpoint definitions JSON |
+| `-o, --output` | Output file |
+| `-F, --format` | json/json-pretty/text/csv |
+| `-t, --timeout` | Request timeout |
+| `-c, --concurrent` | Max concurrent scans |
 
-### Scan with custom timeout
-```bash
-python ip_scanner.py 10.0.0.0/24 -t 10 -F json-pretty
-```
+## Session Handling
 
-### From file with parallel scanning
-```bash
-python ip_scanner.py -f corporate_ips.txt -c 200 -o results/
-```
-
-## Programmatic Usage
-
-```python
-import asyncio
-from ip_scanner import scan_device, parse_ip_range
-
-async def main():
-    ips = parse_ip_range("192.168.1.0/24")
-    results = await scan_range(ips)
-    
-    for r in results:
-        print(f"{r.ip}: {r.status.value}")
-        if r.merged_data:
-            print(json.dumps(r.merged_data, indent=2))
-
-asyncio.run(main())
-```
-
-## Requirements
-
-- Python 3.8+
-- aiohttp
-- Other dependencies in requirements.txt
-
-## License
-
-MIT
+Set `preserve_session: true` to maintain cookies across requests for authenticated sessions.

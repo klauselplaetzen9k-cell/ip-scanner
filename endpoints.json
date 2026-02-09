@@ -1,0 +1,61 @@
+{
+  "groups": [
+    {
+      "name": "router",
+      "endpoints": [
+        {
+          "path": "/api/v1/auth/login",
+          "method": "POST",
+          "body": "{\"username\": \"admin\", \"password\": \"${PASSWORD}\"}",
+          "merge_strategy": "replace"
+        },
+        {
+          "path": "/api/v1/system/info",
+          "method": "GET",
+          "merge_strategy": "smart"
+        },
+        {
+          "path": "/api/v1/network/interfaces",
+          "method": "GET",
+          "preserve_session": true,
+          "merge_strategy": "smart"
+        }
+      ],
+      "continue_on_error": false
+    },
+    {
+      "name": "docker",
+      "endpoints": [
+        {
+          "path": "/v1.45/info",
+          "method": "GET"
+        },
+        {
+          "path": "/v1.45/containers/json",
+          "method": "GET"
+        }
+      ]
+    },
+    {
+      "name": "custom_service",
+      "endpoints": [
+        {
+          "path": "/api/v2/health",
+          "method": "GET",
+          "headers": {
+            "Authorization": "Bearer ${TOKEN}"
+          }
+        },
+        {
+          "path": "/api/v2/users",
+          "method": "GET",
+          "preserve_session": true
+        },
+        {
+          "path": "/api/v2/users/${USER_ID}/profile",
+          "method": "GET"
+        }
+      ]
+    }
+  ]
+}
