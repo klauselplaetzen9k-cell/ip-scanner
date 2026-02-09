@@ -1,0 +1,10 @@
+[tool.pytest.ini_options]
+testpaths = ["test_scanner.py"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
+
+[tool.bandit]
+targets = ["ip_scanner.py"]
+skips = ["B101"]  # assert_used - used in tests
