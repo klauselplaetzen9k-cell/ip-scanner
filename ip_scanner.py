@@ -255,10 +255,21 @@ async def scan_ips(
 
 
 def format_output(results: list[ScanResult], fmt: OutputFormat) -> str:
+    # Build dict with IP as key
+    output_dict = {r.ip: {
+        "hostname": r.hostname,
+        "status": r.status.value,
+        "ping_time_ms": r.ping_time_ms,
+        "endpoint_results": r.endpoint_results,
+        "merged_data": r.merged_data,
+        "error": r.error,
+        "scan_time_ms": round(r.scan_time_ms, 1),
+    } for r in results}
+    
     if fmt == OutputFormat.JSON:
-        return json.dumps([r.to_dict() for r in results])
+        return json.dumps(output_dict)
     elif fmt == OutputFormat.JSON_PRETTY:
-        return json.dumps([r.to_dict() for r in results], indent=2)
+        return json.dumps(output_dict, indent=2)
     elif fmt == OutputFormat.CSV:
         lines = ["ip,hostname,status,ping_ms,scan_time_ms"]
         for r in results:
