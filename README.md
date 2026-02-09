@@ -106,3 +106,13 @@ Useful for quickly discovering devices on your local network.
 ## Session Handling
 
 Set `preserve_session: true` to maintain cookies across requests for authenticated sessions.
+
+## Nmap Service Detection
+
+When `--nmap` is enabled, the scanner runs nmap on discovered hosts for comprehensive port and service detection:
+
+- **Service Version Detection**: `-sV` identifies service versions
+- **Default Scripts**: `-sC` runs default NSE scripts
+- **Open Ports Only**: `--open` filters to open ports
+
+Results are merged into the output under `endpoint_results.nmap`.
