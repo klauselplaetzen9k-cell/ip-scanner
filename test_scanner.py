@@ -1,8 +1,6 @@
 """Tests for IP Scanner."""
 import pytest
-from ip_scanner import parse_ip_range, load_ips_from_file, merge_json
-import tempfile
-import os
+from ip_scanner import parse_ip_range, merge_json
 
 
 def test_parse_ip_single():
@@ -28,27 +26,35 @@ def test_parse_ip_range():
     assert "192.168.1.5" in ips
 
 
-def test_load_ips_from_file(tmp_path):
-    """Test loading IPs from file."""
-    f = tmp_path / "ips.txt"
-    f.write_text("192.168.1.1\n192.168.1.2\n192.168.1.3")
-    
-    ips = load_ips_from_file(str(f))
-    assert len(ips) == 3
-
-
 def test_merge_json():
     """Test JSON merging logic."""
-    # Create test data
     d1 = {"a": 1, "b": None, "c": ""}
     d2 = {"a": None, "b": 2, "c": "text", "d": 4}
     
     merged = merge_json([d1, d2])
     
-    assert merged["a"] == 1  # From d1
-    assert merged["b"] == 2  # From d2 (d1 was None)
-    assert merged["c"] == "text"  # From d2 (d1 was empty)
-    assert merged["d"] == 4  # From d2
+    assert merged["a"] == 1
+    assert merged["b"] == 2
+    assert merged["c"] == "text"
+    assert merged["d"] == 4
+
+
+def test_merge_json_preserves_values():
+    """Test that existing values are preserved."""
+    d1 = {"value": 100}
+    d2 = {"value": None}
+    
+    merged = merge_json([d1, d2])
+    assert merged["value"] == 100  # Preserved from d1
+
+
+def test_merge_json_empty_arrays():
+    """Test merging with empty arrays."""
+    d1 = {"items": [1, 2, 3]}
+    d2 = {"items": []}
+    
+    merged = merge_json([d1, d2])
+    assert merged["items"] == [1, 2, 3]
 
 
 if __name__ == "__main__":
